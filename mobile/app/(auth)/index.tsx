@@ -1,84 +1,88 @@
-import { Text, View, Image, TouchableOpacity, SafeAreaView, ActivityIndicator } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { useSocialAuth } from "@/hooks/useSocialAuth";
+import { ActivityIndicator, Image, Text, TouchableOpacity, View } from "react-native";
 
-export default function SignIn() {
+export default function Index() {
   const { handleSocialAuth, isLoading } = useSocialAuth();
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar style="dark" />
-      
-      {/* Content */}
-      <View className="flex-1 justify-between px-6 py-12">
-        {/* Header */}
-        <View className="mt-16 items-center">
-        </View>
+    <View className="flex-1 bg-white">
+      <View className="flex-1 px-8 justify-between">
+        <View className="flex-1 justify-center">
+          {/* DEMO IMAGE */}
+          <View className="items-center">
+            <Image
+              source={require("../../assets/images/auth2.png")}
+              className="size-96"
+              resizeMode="contain"
+            />
+          </View>
 
-        {/* Auth Image */}
-        <View className="items-center">
-          <Image 
-            source={require("../../assets/images/auth1.png")} 
-            className="w-80 h-80"
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Sign In Options */}
-        <View className="bg-white rounded-3xl p-8 mb-8 shadow-lg border border-gray-100">
-          {/* Social Sign In Buttons */}
-          <View className="space-y-6 gap-4">
-            {/* Google Sign In */}
-            <TouchableOpacity 
-              className="bg-white border border-gray-300 rounded-xl py-4 flex-row items-center justify-center shadow-sm"
-              disabled={isLoading}
+          <View className="flex-col gap-2">
+            {/* GOOGLE SIGNIN BTN */}
+            <TouchableOpacity
+              className="flex-row items-center justify-center bg-white border border-gray-300 rounded-full py-3 px-6"
               onPress={() => handleSocialAuth("oauth_google")}
+              disabled={isLoading}
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+                elevation: 2,
+              }}
             >
               {isLoading ? (
-                <>
-                  <ActivityIndicator size="small" color="#3B82F6" />
-                  <Text className="text-gray-700 font-semibold text-lg ml-3">Signing in...</Text>
-                </>
+                <ActivityIndicator size="small" color="#4285F4" />
               ) : (
-                <>
-                  <Image 
-                    source={require("../../assets/images/google.png")} 
-                    className="w-6 h-6 mr-3"
+                <View className="flex-row items-center justify-center">
+                  <Image
+                    source={require("../../assets/images/google.png")}
+                    className="size-10 mr-3"
                     resizeMode="contain"
                   />
-                  <Text className="text-gray-700 font-semibold text-lg">Continue with Google</Text>
-                </>
+                  <Text className="text-black font-medium text-base">Continue with Google</Text>
+                </View>
               )}
             </TouchableOpacity>
 
-            {/* Apple Sign In */}
-            <TouchableOpacity 
-              className="bg-white border border-gray-300 rounded-xl py-4 flex-row items-center justify-center shadow-sm"
-              disabled={isLoading}
+            {/* APPLE SIGNIN ICON */}
+            <TouchableOpacity
+              className="flex-row items-center justify-center bg-white border border-gray-300 rounded-full py-3 px-6"
               onPress={() => handleSocialAuth("oauth_apple")}
+              disabled={isLoading}
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+                elevation: 2,
+              }}
             >
               {isLoading ? (
-                <>
-                  <ActivityIndicator size="small" color="#3B82F6" />
-                  <Text className="text-gray-700 font-semibold text-lg ml-3">Signing in...</Text>
-                </>
+                <ActivityIndicator size="small" color="#000" />
               ) : (
-                <>
-                  <Image 
-                    source={require("../../assets/images/apple.png")} 
-                    className="w-6 h-6 mr-3"
+                <View className="flex-row items-center justify-center">
+                  <Image
+                    source={require("../../assets/images/apple.png")}
+                    className="size-8 mr-3"
                     resizeMode="contain"
                   />
-                  <Text className="text-gray-700 font-semibold text-lg">Continue with Apple</Text>
-                </>
+                  <Text className="text-black font-medium text-base">Continue with Apple</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Footer */}
-        <View className="items-center">
+          {/* Terms and Privacy */}
+          <Text className="text-center text-gray-500 text-xs leading-4 mt-6 px-2">
+            By signing up, you agree to our <Text className="text-blue-500">Terms</Text>
+            {", "}
+            <Text className="text-blue-500">Privacy Policy</Text>
+            {", and "}
+            <Text className="text-blue-500">Cookie Use</Text>.
+          </Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
