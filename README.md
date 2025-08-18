@@ -2,6 +2,438 @@
 
 A Twitter clone built with React Native and Node.js.
 
+## Authentication Workflow
+
+### Overview
+The app uses Clerk for authentication with a sophisticated workflow that handles social sign-in (Google/Apple) and automatic navigation based on authentication state.
+
+### Complete Sign-In Flow
+
+#### 1. 🚀 Initial State
+```
+User opens app → Goes to /(auth) route → Sees sign-in page with Google/Apple buttons
+```
+
+#### 2. 📱 User Interaction
+```tsx
+// In auth/index.tsx
+onPress={() => handleSocialAuth("oauth_google")}
+// or
+onPress={() => handleSocialAuth("oauth_apple")}
+```
+
+#### 3. 🔧 Hook Handles Authentication
+```tsx
+// In useSocialAuth.ts
+const handleSocialAuth = async (strategy) => {
+  setIsLoading(true);  // Shows loading spinner
+  try {
+    const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+    if (createdSessionId && setActive) {
+      await setActive({ session: createdSessionId });  // Creates user session
+    }
+  } catch (err) {
+    // Handle errors
+  } finally {
+    setIsLoading(false);  // Hides loading spinner
+  }
+};
+```
+
+#### 4. 🔐 Clerk Authentication Flow
+- **`startSSOFlow`**: Opens Google/Apple sign-in popup
+- **User authenticates**: Enters credentials on Google/Apple
+- **Clerk creates session**: New user account + session
+- **`setActive`**: Activates the session in your app
+
+#### 5. 🔄 Auth Layout Detects Change
+```tsx
+// In (auth)/_layout.tsx
+export default function AuthRoutesLayout() {
+  const { isSignedIn } = useAuth()  // Clerk hook
+
+  if (isSignedIn) {  // User is now signed in!
+    return <Redirect href={'/'} />   // Redirect to home page
+  }
+
+  return <Stack />  // Show auth screens if not signed in
+}
+```
+
+#### 6. 🏠 Redirect to Home Page
+```
+/(auth) → / (home page)
+```
+
+### How Clerk Knows You're Signed In
+
+#### Real-Time State Management
+```tsx
+const { isSignedIn } = useAuth()
+```
+- **`useAuth()`** is a Clerk hook that subscribes to Clerk's internal state
+- **Clerk maintains** a global authentication state in memory
+- **Real-time updates** happen automatically when auth state changes
+
+#### The Authentication Flow
+```tsx
+// When you click Google/Apple button:
+const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+
+// This line is KEY:
+await setActive({ session: createdSessionId });
+```
+
+**What `setActive` does:**
+- **Creates/updates** the user session in Clerk's internal state
+- **Triggers** a state change event
+- **Updates** all components using `useAuth()` automatically
+
+#### Real-Time State Synchronization
+```tsx
+// Before authentication:
+useAuth() → { isSignedIn: false, user: null }
+
+// After successful authentication:
+useAuth() → { isSignedIn: true, user: { id: "user_123", email: "..." } }
+
+// Your component automatically re-renders with new values!
+```
+
+### Step-by-Step Behind the Scenes
+
+#### Step 1: User Clicks Button
+```tsx
+onPress={() => handleSocialAuth("oauth_google")}
+```
+
+#### Step 2: Clerk Opens OAuth Flow
+```tsx
+startSSOFlow({ strategy: "oauth_google" })
+// Opens Google sign-in popup
+```
+
+#### Step 3: User Authenticates with Google
+- User enters Google credentials
+- Google returns authentication token
+- Clerk receives the token
+
+#### Step 4: Clerk Creates Session
+```tsx
+// Clerk internally:
+// 1. Validates Google token
+// 2. Creates/updates user record
+// 3. Generates session ID
+// 4. Updates internal state: isSignedIn = true
+```
+
+#### Step 5: Your App Gets Notified
+```tsx
+// Clerk automatically triggers:
+// - State change event
+// - All useAuth() hooks update
+// - Your component re-renders
+// - isSignedIn becomes true
+```
+
+#### Step 6: Redirect Happens
+```tsx
+// In your _layout.tsx:
+if (isSignedIn) {  // Now true!
+  return <Redirect href={'/'} />
+}
+```
+
+### Key Components
+
+#### useSocialAuth Hook
+```tsx
+export const useSocialAuth = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const { startSSOFlow } = useSSO();
+
+  const handleSocialAuth = async (strategy) => {
+    setIsLoading(true);
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+    } catch (err) {
+      console.log("Error in social auth", err);
+      const provider = strategy === "oauth_google" ? "Google" : "Apple";
+      Alert.alert("Error", `Failed to sign in with ${provider}. Please try again.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { isLoading, handleSocialAuth };
+};
+```
+
+#### Auth Layout with Automatic Redirect
+```tsx
+export default function AuthRoutesLayout() {
+  const { isSignedIn } = useAuth();
+
+  if (isSignedIn) {
+    return <Redirect href={'/'} />
+  }
+
+  return <Stack />
+}
+```
+
+### Why This Architecture Works
+
+#### Clerk Handles:
+- **User creation** (first time users)
+- **Session management**
+- **Authentication state**
+- **OAuth flow complexity**
+
+#### Your App Handles:
+- **UI/UX** (buttons, loading states)
+- **Navigation** (redirects based on auth state)
+- **Error handling**
+- **User experience**
+
+#### The Magic:
+- **`useAuth()`** automatically updates when Clerk's state changes
+- **`isSignedIn`** becomes `true` after successful authentication
+- **`<Redirect>`** automatically navigates to home page
+- **No manual navigation needed!**
+
+### Visual Flow Summary
+```
+Sign-in Page → Button Click → Loading State → Google/Apple Auth → 
+Clerk Session → Auth Layout Detects Sign-in → Redirect to Home Page
+```
+
+This architecture provides a seamless, secure, and user-friendly authentication experience where Clerk handles all the complex authentication logic while your app simply responds to authentication state changes.
+
+### Device Memory and Session Persistence
+
+#### How Clerk Remembers Your Device
+
+**Yes! Clerk tracks and manages device-specific information for each login, which is why you get automatically redirected to the home page on subsequent app opens.**
+
+#### Session Management
+- **Each device** gets a unique session when you log in
+- **Session tokens** are stored locally on each device
+- **Multiple devices** can be logged in simultaneously with the same account
+
+#### Device Storage
+```tsx
+// Clerk stores locally on each device:
+- Session token (JWT)
+- User ID
+- Authentication state
+- Device-specific metadata
+```
+
+#### Multi-Device Support
+- **Phone + Tablet**: Both can be logged in at the same time
+- **Different browsers**: Each maintains its own session
+- **App + Web**: Separate sessions for mobile app and web browser
+
+#### Security Features
+- **Device fingerprinting**: Clerk can detect suspicious login patterns
+- **Session revocation**: You can log out from specific devices
+- **Location tracking**: Clerk knows where each device is logging in from
+
+### Why You Get Redirected Automatically
+
+#### Session Persistence Flow
+```
+1st Login: Device → Clerk → Session Token → Stored Locally
+2nd Open: App Opens → Clerk Checks Stored Token → Still Valid → Home Page!
+```
+
+#### What Clerk Checks Automatically
+- **Session token** stored on device
+- **Token expiration** (when it was created)
+- **Token validity** (hasn't been revoked)
+- **Device fingerprint** (same device)
+
+#### Real Example
+
+**First Time:**
+```
+Open App → No stored token → isSignedIn = false → Auth Screen
+Click Google → Authenticate → Clerk creates session → Token stored → Home
+```
+
+**Next Time:**
+```
+Open App → Clerk finds stored token → Validates token → isSignedIn = true → Home!
+```
+
+**If Token Expires:**
+```
+Open App → Clerk finds stored token → Token expired → isSignedIn = false → Auth Screen
+```
+
+#### Automatic Token Validation
+```tsx
+// Every time your app opens, Clerk automatically:
+const { isSignedIn } = useAuth()  // Checks stored token
+
+// If token exists and is valid:
+isSignedIn = true  // User is "remembered"
+
+// If no token or expired:
+isSignedIn = false  // User needs to sign in again
+```
+
+#### No Manual Work Required
+- **You don't code** the token checking
+- **Clerk handles** it automatically
+- **Your app just** responds to the `isSignedIn` value
+
+### The Magic Explained
+
+**Clerk is like a smart security guard who:**
+1. **Remembers** who you are on each device
+2. **Automatically checks** your "ID card" (session token) when you return
+3. **Lets you in** if your ID is still valid
+4. **Asks for new ID** if your old one expired
+
+**This is why:**
+- Your device "remembers" you
+- You don't have to log in every single time
+- You get automatically redirected to home page
+- Multiple devices can stay logged in independently
+
+The session token acts like a "remember me" feature that Clerk manages automatically, providing a seamless user experience while maintaining security.
+
+### Understanding _layout.tsx Files
+
+#### What _layout.tsx Does
+
+**Purpose:**
+- **Wraps multiple screens** in a specific layout
+- **Defines navigation structure** (Stack, Tabs, Drawer)
+- **Shares common UI elements** across multiple screens
+- **Handles authentication logic** for that route group
+
+#### Common Use Cases
+
+**1. Navigation Structure:**
+```tsx
+// app/(tabs)/_layout.tsx
+import { Tabs } from 'expo-router';
+
+export default function TabLayout() {
+  return (
+    <Tabs>
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="home" />
+      <Tabs.Screen name="profile" />
+    </Tabs>
+  );
+}
+```
+
+**2. Stack Navigation:**
+```tsx
+// app/(auth)/_layout.tsx
+import { Stack } from 'expo-router';
+
+export default function AuthLayout() {
+  return (
+    <Stack>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+    </Stack>
+  );
+}
+```
+
+**3. Authentication Logic:**
+```tsx
+// app/(auth)/_layout.tsx
+import { Redirect, Stack } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
+
+export default function AuthLayout() {
+  const { isSignedIn } = useAuth();
+
+  if (isSignedIn) {
+    return <Redirect href="/" />;  // Redirect if already signed in
+  }
+
+  return <Stack />;  // Show auth screens if not signed in
+}
+```
+
+**4. Shared UI Elements:**
+```tsx
+// app/(tabs)/_layout.tsx
+import { Tabs } from 'expo-router';
+import { View, Text } from 'react-native';
+
+export default function TabLayout() {
+  return (
+    <View style={{ flex: 1 }}>
+      <Tabs>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+      
+      {/* Shared footer across all tabs */}
+      <View style={{ padding: 20, backgroundColor: '#f0f0f0' }}>
+        <Text>Shared Footer</Text>
+      </View>
+    </View>
+  );
+}
+```
+
+#### Layout Hierarchy in Your App
+
+**Current Structure:**
+```
+Root Layout (app/_layout.tsx)
+├── ClerkProvider + Stack
+├── Auth Layout (app/(auth)/_layout.tsx)
+│   ├── Checks authentication state
+│   ├── Redirects if signed in
+│   └── Shows auth screens if not signed in
+└── Main Layout (app/index.tsx)
+    └── Home page content
+```
+
+**Screen Flow:**
+1. **User opens app** → Root layout renders with ClerkProvider
+2. **If on auth route** → Auth layout checks if user is signed in
+3. **If signed in** → Redirects to home page
+4. **If not signed in** → Shows authentication screens
+
+#### Key Benefits
+
+- **Code Organization**: Separate layout logic for different route groups
+- **Authentication Guards**: Protect routes based on user state
+- **Navigation Structure**: Define how screens are organized
+- **Shared UI**: Common elements across multiple screens
+- **Reusability**: Layouts can be reused across different route groups
+
+#### Naming Conventions
+
+**Route Group Names:**
+- **`(auth)`** - Authentication-related screens
+- **`(tabs)`** - Tab-based navigation (common but not required)
+- **`(main)`** - Main app screens
+- **`(dashboard)`** - Dashboard-related screens
+
+**Important Notes:**
+- **Parentheses `()`** create route groups (not the name inside)
+- **`_layout.tsx`** defines the layout for that group
+- **Group names** can be anything descriptive
+- **`(tabs)`** is just a popular choice, not a requirement
+
 ## Backend Implementation Status
 
 ## Database Models
